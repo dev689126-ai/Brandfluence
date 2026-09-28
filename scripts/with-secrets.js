@@ -32,6 +32,16 @@ if (!Object.keys(secrets).length) {
   process.exit(1);
 }
 if (fromEnv) console.log(`with-secrets: ${fromEnv} value(s) taken from environment variables`);
+
+// Safety: never deploy without the scheduler secret, or the live value would be replaced with an empty one
+const REQUIRED = { brandfluence_api: ['SCHEDULER_SECRET'], bf_scheduler: ['SCHEDULER_SECRET'] };
+const missing = [];
+for (const [fn, keys] of Object.entries(REQUIRED)) for (const k of keys) if (!(secrets[fn] && secrets[fn][k])) missing.push(`${fn}.${k}`);
+if (missing.length) {
+  console.error(`with-secrets: stopping, required secret(s) missing: ${missing.join(', ')}.`);
+  console.error('Set them in secrets.local.json, or as Global Variables in the Catalyst pipeline. Nothing was deployed.');
+  process.exit(1);
+}
 const backups = {};
 
 for (const [fn, vars] of Object.entries(secrets)) {
