@@ -60,7 +60,18 @@ Production is still updated from the Console with **Deploy to Production**, afte
 
 ## Sign-in form styling
 
-Catalyst draws the sign-in form inside an iframe in its own blue. `client/login.html` applies a colour shift to that iframe (`hue-rotate(134deg) saturate(2.2)`), which turns the blue into Brandfluence pink and leaves white, grey and black unchanged.
+Catalyst draws the sign-in form inside an iframe. Following Catalyst's docs, it is styled with its official template plus our changes at the end:
+
+- `client/css/embedded_signin.css`: Catalyst's template, downloaded from `https://api.catalyst.zoho.com/baas/v1/auth/static-file?file_name=embedded_signin.css`
+- `client/css/embedded-brand.css`: Brandfluence overrides. These change colours, fonts and shapes only, never what is shown or hidden.
+- `client/css/embedded-auth.css`: the file the sign-in page uses, made of a font import, then the template, then the overrides.
+
+After editing the overrides, rebuild the combined file (PowerShell):
+```
+cd client\css
+"@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');" | Set-Content embedded-auth.css
+Get-Content embedded_signin.css, embedded-brand.css | Add-Content embedded-auth.css
+```
 
 ## Web app (client/)
 

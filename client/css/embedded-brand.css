@@ -1,0 +1,52 @@
+
+/* ======================================================================
+   Brandfluence overrides — appended after Catalyst's embedded_signin.css
+   (Catalyst docs: "add your styling after the last line of code").
+   Colours, fonts and shapes only; no display/visibility changes, so the
+   form's hidden steps (password, OTP, backup codes) keep working.
+   ====================================================================== */
+body, .textbox, .btn, .textbox_label, .bluetext_action {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, -apple-system, sans-serif !important;
+}
+body { color: #1F1530; background: #FFFFFF; }
+
+/* Primary button: the app's rounded pink-to-orange pill */
+.btn {
+  height: 48px;
+  border-radius: 999px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+.blue {
+  background: linear-gradient(120deg, #E6197A 0%, #FF5C4D 55%, #FF9F1C 100%);
+  background-color: #E6197A;
+  color: #FFFFFF;
+  box-shadow: 0 8px 20px -10px rgba(230, 25, 122, .7);
+}
+.blue:hover { box-shadow: 0 10px 24px -10px rgba(230, 25, 122, .8); filter: brightness(1.04); }
+.grey { border-radius: 999px; background-color: #F2EFF7; color: #1F1530; }
+.changeloadbtn { border-radius: 22px; }
+.changeloadbtn:before { border-top-color: #FDE7F1; }
+
+/* Text fields: soft rounded boxes with a pink focus ring (also on narrow screens) */
+.textbox, #verify_totp {
+  background: #F7F5FB;
+  border: 1.5px solid #DCD5E8;
+  border-radius: 12px;
+  text-indent: 14px;
+  color: #1F1530;
+}
+.textbox:valid { border: 1.5px solid #DCD5E8; }
+.textbox:focus, #verify_totp:focus {
+  border: 1.5px solid #E6197A;
+  box-shadow: 0 0 0 4px #FDE7F1;
+  background: #FFFFFF;
+}
+.textbox.errorborder, .textbox.errorborder:focus, .errorborder:focus { border: 1.5px solid #E03131; box-shadow: 0 0 0 4px #FDE8E8; }
+.textbox_label { color: #4D4460; font-weight: 700; font-size: 13px; }
+
+/* Links and small blue accents become Brandfluence pink */
+.bluetext_action, .bluetext_action a, #recoverybtn, #problemsignin, .tryanother { color: #E6197A; }
+#terminate_session_form .checkbox_check:checked ~ .checkbox { background-color: #E6197A; border-color: #E6197A; }
