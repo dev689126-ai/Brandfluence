@@ -37,6 +37,11 @@
        This shift turns its blue (#159AFF) into Brandfluence pink (#FF197C) and leaves
        white, grey and black exactly as they are. */
     #loginDiv iframe { filter: hue-rotate(134deg) saturate(2.2); }
+    /* Then give coloured pixels (the button) the app's pink-to-orange gradient.
+       A "hue" blend only changes colour where there is colour, so white, grey and black stay untouched. */
+    #loginDiv { position: relative; isolation: isolate; }
+    #loginDiv::after { content: ""; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: hue;
+      background: linear-gradient(90deg, #E6197A 12%, #FF3D5A 50%, #FF6A3D 88%); }
     #loginDiv iframe, #signupDiv iframe { width: 100% !important; border: 0; min-height: 460px; height: 460px !important; }
     .auth-loading { display: grid; place-items: center; min-height: 300px; color: var(--ink-3); font-size: 14px; }
     #signupDiv { min-height: 0; padding-top: 6px; }
