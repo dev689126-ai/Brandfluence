@@ -11,15 +11,27 @@ version: 1
 runners:
   Machine:
     config-id: 2
+images:
+  DeployMachine:
+    image: ubuntu
+    auth:
+      username: << env.USER_NAME >>
+      password: << env.USER_PASSWORD >>
 jobs:
   Deploy_Brandfluence:
     steps:
+      - apt-get update
+      - apt-get -y install curl ca-certificates
+      - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+      - apt-get install -y nodejs
+      - npm i -g zcatalyst-cli
       - node -v
       - catalyst -v
       - npm install --omit=dev --prefix functions/brandfluence_api
       - npm install --omit=dev --prefix functions/bf_scheduler
-      - SCHEDULER_SECRET='<< env.SCHEDULER_SECRET >>' YOUTUBE_API_KEY='<< env.YOUTUBE_API_KEY >>' RAZORPAY_KEY_ID='<< env.RAZORPAY_KEY_ID >>' RAZORPAY_KEY_SECRET='<< env.RAZORPAY_KEY_SECRET >>' RAZORPAY_WEBHOOK_SECRET='<< env.RAZORPAY_WEBHOOK_SECRET >>' TWITCH_CLIENT_ID='<< env.TWITCH_CLIENT_ID >>' TWITCH_CLIENT_SECRET='<< env.TWITCH_CLIENT_SECRET >>' IG_BUSINESS_ACCOUNT_ID='<< env.IG_BUSINESS_ACCOUNT_ID >>' IG_ACCESS_TOKEN='<< env.IG_ACCESS_TOKEN >>' node scripts/with-secrets.js catalyst deploy --project << env.PROJECT_NAME >> --org << env.CATALYST_ORG >> --token << env.CATALYST_TOKEN >>
+      - SCHEDULER_SECRET='<< env.SCHEDULER_SECRET >>' node scripts/with-secrets.js catalyst deploy --project << env.PROJECT_NAME >> --org << env.CATALYST_ORG >> --token << env.CATALYST_TOKEN >>
 stages:
-  - name: deploy
+  - name: build
+    image: DeployMachine
     jobs:
       - Deploy_Brandfluence
