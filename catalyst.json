@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "targets": ["brandfluence_api", "bf_scheduler"],
+    "ignore": [],
+    "source": "functions"
+  },
+  "client": {
+    "source": "client"
+  }
+}

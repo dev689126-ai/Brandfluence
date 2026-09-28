@@ -1,0 +1,9 @@
+node_modules/
+.catalystrc
+.catalyst/
+*.log
+.DS_Store
+Thumbs.db
+*.tmp
+*.zip
+secrets.local.json

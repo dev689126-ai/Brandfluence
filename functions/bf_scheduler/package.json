@@ -1,0 +1,7 @@
+{
+  "name": "bf_scheduler",
+  "version": "1.0.0",
+  "main": "index.js",
+  "private": true,
+  "dependencies": { "zcatalyst-sdk-node": "latest" }
+}

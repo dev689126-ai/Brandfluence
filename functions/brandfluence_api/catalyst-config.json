@@ -1,0 +1,31 @@
+{
+  "deployment": {
+    "name": "brandfluence_api",
+    "stack": "node20",
+    "type": "advancedio",
+    "env_variables": {
+      "BUSINESS_FEE_PERCENT": "10",
+      "CREATOR_FEE_PERCENT": "0",
+      "GST_ON_FEE_PERCENT": "18",
+      "AUTO_RELEASE_DAYS": "7",
+      "MEDIA_BUCKET": "brandfluence-media",
+      "DOCS_BUCKET": "brandfluence-docs",
+      "CACHE_SEGMENT_ID": "5666000000556019",
+      "ADMIN_EMAILS": "user3@demo.adequatebookkeeping.com,chetan.p@aurnex.tech",
+      "APP_URL": "https://brandfluence-60027750675.development.catalystserverless.in",
+      "MAIL_FROM": "",
+      "RAZORPAY_KEY_ID": "",
+      "RAZORPAY_KEY_SECRET": "",
+      "RAZORPAY_WEBHOOK_SECRET": "",
+      "YOUTUBE_API_KEY": "",
+      "IG_BUSINESS_ACCOUNT_ID": "",
+      "IG_ACCESS_TOKEN": "",
+      "SCHEDULER_SECRET": "",
+      "TWITCH_CLIENT_ID": "",
+      "TWITCH_CLIENT_SECRET": ""
+    }
+  },
+  "execution": {
+    "main": "index.js"
+  }
+}

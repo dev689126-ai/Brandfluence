@@ -1,0 +1,14 @@
+{
+  "deployment": {
+    "name": "bf_scheduler",
+    "stack": "node20",
+    "type": "job",
+    "env_variables": {
+      "API_BASE": "https://brandfluence-60027750675.development.catalystserverless.in/server/brandfluence_api",
+      "SCHEDULER_SECRET": ""
+    }
+  },
+  "execution": {
+    "main": "index.js"
+  }
+}
