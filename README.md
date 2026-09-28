@@ -44,7 +44,7 @@ Never run a plain `catalyst deploy` for functions. It would upload empty secret 
 
 ## Automatic deploys (Catalyst Pipelines)
 
-`catalyst-pipelines.yaml` deploys the backend, scheduler and web app to **Development** on every push to `main`.
+`catalyst-pipelines.yaml` deploys the backend, scheduler and web app to **Development** on every push to `main`. It uses Catalyst's default build machine, so no Docker account is needed.
 
 One-time setup:
 1. On your computer, run `catalyst token:generate` and copy the token.
@@ -53,7 +53,6 @@ One-time setup:
    - `CATALYST_TOKEN`: the token from step 1
    - `CATALYST_ORG`: `60027750675`
    - `PROJECT_NAME`: `Brandfluence`
-   - `DOCKER_USER` and `DOCKER_PASSWORD`: a free Docker Hub account, which the pipeline needs to download its build machine image
    - `SCHEDULER_SECRET`: same value as in `secrets.local.json`
    - Optional keys, left empty if unused: `YOUTUBE_API_KEY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `IG_BUSINESS_ACCOUNT_ID`, `IG_ACCESS_TOKEN`
 
