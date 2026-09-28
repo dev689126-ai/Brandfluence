@@ -42,6 +42,27 @@ Secrets are **not** stored in Git. They live in `secrets.local.json`, which Git 
 
 Never run a plain `catalyst deploy` for functions. It would upload empty secret values and break the scheduler, payments and YouTube sync. Deploying only the web app is safe: `catalyst deploy -p 5666000000546001 --only client`.
 
+## Automatic deploys (Catalyst Pipelines)
+
+`catalyst-pipelines.yaml` deploys the backend, scheduler and web app to **Development** on every push to `main`.
+
+One-time setup:
+1. On your computer, run `catalyst token:generate` and copy the token.
+2. Catalyst Console → **Pipelines** → **Create Pipeline** → choose **GitHub** → add your GitHub account → pick this repository and the `main` branch. Use the existing `catalyst-pipelines.yaml`.
+3. In the pipeline's **Global configuration**, add these variables:
+   - `CATALYST_TOKEN`: the token from step 1
+   - `CATALYST_ORG`: `60027750675`
+   - `PROJECT_NAME`: `Brandfluence`
+   - `DOCKER_USER` and `DOCKER_PASSWORD`: a free Docker Hub account, which the pipeline needs to download its build machine image
+   - `SCHEDULER_SECRET`: same value as in `secrets.local.json`
+   - Optional keys, left empty if unused: `YOUTUBE_API_KEY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `IG_BUSINESS_ACCOUNT_ID`, `IG_ACCESS_TOKEN`
+
+Production is still updated from the Console with **Deploy to Production**, after checking Development.
+
+## Sign-in form styling
+
+`scripts/build-auth-css.js` runs before every deploy. It downloads Catalyst's official sign-in template stylesheet and adds `client/css/embedded-brand.css` after it, producing `client/css/embedded-auth.css`. The combined file is generated each time, so Git ignores it. If the download fails, the sign-in form simply keeps Catalyst's default look.
+
 ## Web app (client/)
 
 This is a no-build single-page app, served by Catalyst Web Client Hosting on the same domain as the API. Because of that, login cookies just work and CORS isn't needed.

@@ -12,11 +12,26 @@ const { spawnSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
 const secretsFile = path.join(root, 'secrets.local.json');
-if (!fs.existsSync(secretsFile)) {
-  console.error('secrets.local.json not found. Copy secrets.example.json to secrets.local.json and fill in your values.');
+const exampleFile = path.join(root, 'secrets.example.json');
+
+// 1) values from secrets.local.json (your computer)
+let secrets = {};
+if (fs.existsSync(secretsFile)) secrets = JSON.parse(fs.readFileSync(secretsFile, 'utf8').replace(/^\uFEFF/, ''));
+
+// 2) values from environment variables with the same names (used by Catalyst Pipelines)
+const example = JSON.parse(fs.readFileSync(exampleFile, 'utf8'));
+let fromEnv = 0;
+for (const [fn, vars] of Object.entries(example)) {
+  for (const k of Object.keys(vars)) {
+    const v = process.env[k];
+    if (v && !/^<<.*>>$/.test(v)) { (secrets[fn] = secrets[fn] || {})[k] = v; fromEnv += 1; }
+  }
+}
+if (!Object.keys(secrets).length) {
+  console.error('No secrets found. Create secrets.local.json (copy secrets.example.json) or set them as environment variables.');
   process.exit(1);
 }
-const secrets = JSON.parse(fs.readFileSync(secretsFile, 'utf8'));
+if (fromEnv) console.log(`with-secrets: ${fromEnv} value(s) taken from environment variables`);
 const backups = {};
 
 for (const [fn, vars] of Object.entries(secrets)) {

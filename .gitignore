@@ -7,3 +7,4 @@ Thumbs.db
 *.tmp
 *.zip
 secrets.local.json
+client/css/embedded-auth.css

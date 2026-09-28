@@ -2,7 +2,6 @@
 /* ===== Brandfluence overrides (added after Catalyst's default stylesheet) =====
    Colours, fonts and shapes only. No display/visibility rules, so Catalyst's
    hidden steps (OTP, password, backup codes) keep working. */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
 
 body, input, button, select, textarea, .signin_container, .signin_box { font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif !important; }
 body { color: #1F1530 !important; background: #FFFFFF !important; }
