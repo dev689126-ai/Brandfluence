@@ -9,7 +9,6 @@ if not exist secrets.local.json (
 )
 cd functions\brandfluence_api && call npm install --omit=dev && cd ..\..
 cd functions\bf_scheduler && call npm install --omit=dev && cd ..\..
-node scripts\build-auth-css.js
 node scripts\with-secrets.js catalyst deploy -p 5666000000546001
 if errorlevel 1 (echo. & echo DEPLOY FAILED - send a screenshot of the error to Claude. & pause & exit /b 1)
 echo.

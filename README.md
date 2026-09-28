@@ -60,7 +60,7 @@ Production is still updated from the Console with **Deploy to Production**, afte
 
 ## Sign-in form styling
 
-`scripts/build-auth-css.js` runs before every deploy. It downloads Catalyst's official sign-in template stylesheet and adds `client/css/embedded-brand.css` after it, producing `client/css/embedded-auth.css`. The combined file is generated each time, so Git ignores it. If the download fails, the sign-in form simply keeps Catalyst's default look.
+Catalyst draws the sign-in form inside an iframe in its own blue. `client/login.html` applies a colour shift to that iframe (`hue-rotate(134deg) saturate(2.2)`), which turns the blue into Brandfluence pink and leaves white, grey and black unchanged.
 
 ## Web app (client/)
 

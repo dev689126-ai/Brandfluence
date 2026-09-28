@@ -18,7 +18,6 @@ jobs:
       - catalyst -v
       - npm install --omit=dev --prefix functions/brandfluence_api
       - npm install --omit=dev --prefix functions/bf_scheduler
-      - node scripts/build-auth-css.js
       - SCHEDULER_SECRET='<< env.SCHEDULER_SECRET >>' YOUTUBE_API_KEY='<< env.YOUTUBE_API_KEY >>' RAZORPAY_KEY_ID='<< env.RAZORPAY_KEY_ID >>' RAZORPAY_KEY_SECRET='<< env.RAZORPAY_KEY_SECRET >>' RAZORPAY_WEBHOOK_SECRET='<< env.RAZORPAY_WEBHOOK_SECRET >>' TWITCH_CLIENT_ID='<< env.TWITCH_CLIENT_ID >>' TWITCH_CLIENT_SECRET='<< env.TWITCH_CLIENT_SECRET >>' IG_BUSINESS_ACCOUNT_ID='<< env.IG_BUSINESS_ACCOUNT_ID >>' IG_ACCESS_TOKEN='<< env.IG_ACCESS_TOKEN >>' node scripts/with-secrets.js catalyst deploy --project << env.PROJECT_NAME >> --org << env.CATALYST_ORG >> --token << env.CATALYST_TOKEN >>
 stages:
   - name: deploy
