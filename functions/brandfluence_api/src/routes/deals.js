@@ -41,6 +41,13 @@ router.post('/', requireRole('business'), wrap(async (req, res) => {
     requires_shipping: terms.requires_shipping,
   });
   const offer = await insertOffer(app, deal.ROWID, 1, 'business', terms, b.message);
+  if (b.conversation_id) {
+    // The offer came out of a direct chat: link them so both sides can see where it started
+    try {
+      const conv = await db.one(app, 'Conversations', `ROWID = ${db.id(b.conversation_id)} AND business_id = ${req.business.ROWID} AND creator_id = ${creator.ROWID}`);
+      if (conv) await db.update(app, 'Conversations', { ROWID: conv.ROWID, status: 'converted', deal_id: deal.ROWID });
+    } catch (e) { console.error('link chat to deal failed', e.message); }
+  }
   await audit(app, { actor: req.profile, entityType: 'deal', entityId: deal.ROWID, action: 'offer_sent', to: STATUS.OFFER_SENT, details: { total: terms.total_amount }, ip: req.ip });
   await notify(app, creator.user_profile_id, {
     type: 'offer_received', dealId: deal.ROWID, link: `/deals/${deal.ROWID}`,

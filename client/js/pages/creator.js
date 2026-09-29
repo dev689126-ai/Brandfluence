@@ -3,13 +3,14 @@ import { $, $$, esc, inr, compact, pct, label, date, tag, toast, fail, modal, co
 import { ctx, go } from '../state.js';
 import { dealRows } from './deals.js';
 import { platformMark } from '../icons.js';
+import { viewsPanel } from './pro.js';
 
 const main = () => $('#main');
 const PLATFORMS = ['instagram', 'youtube', 'twitch', 'facebook', 'x', 'linkedin', 'other'];
 
 /* ---------------- Home ---------------- */
 export async function home() {
-  const [d, deals] = await Promise.all([get('/creators/me/dashboard'), get('/deals?size=8')]);
+  const [d, deals, views] = await Promise.all([get('/creators/me/dashboard'), get('/deals?size=8'), viewsPanel()]);
   const pending = deals.data.filter((x) => ['offer_sent', 'negotiation'].includes(x.status));
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -30,6 +31,8 @@ export async function home() {
         ${deals.data.length ? dealRows(deals.data) : `<div class="rows">${emptyState('No deals yet. A complete profile with connected accounts and a rate card is what brands look for.', '<a class="btn" href="#/profile/social">Connect an account</a>')}</div>`}
       </div>
       <div>
+        ${ctx.me.plan && !ctx.me.plan.is_pro ? `<div class="next-step"><h3>Pitch brands directly</h3><p>Pro creators message brands first, see their open campaigns and budgets, and show up at the top of searches.</p><a class="btn money" href="#/plan">See Pro</a></div>` : ''}
+        ${views}
         <div class="panel">
           <h3>Profile strength</h3>
           <div class="strength"><i style="width:${d.profile_strength}%"></i></div>
@@ -97,7 +100,18 @@ async function details(p) {
 }
 
 async function social(p) {
+  const igLinked = p.social.find((a) => a.platform === 'instagram' && a.connection_type === 'oauth');
+  const flash = (location.hash.match(/[?&]ig=(\w+)/) || [])[1];
+  const FLASH = { connected: ['', 'Instagram connected. Your deal posts will now show reach and views automatically.'], cancelled: ['error', 'Instagram connection was cancelled.'],
+    personal: ['error', 'That is a personal Instagram account. Switch it to a Creator or Business account in the Instagram app (Settings → Account type), then connect again.'],
+    expired: ['error', 'The connection took too long. Please try again.'], error: ['error', 'Instagram connection failed. Please try again.'] };
+  if (flash && FLASH[flash]) { toast(FLASH[flash][1], FLASH[flash][0]); history.replaceState(null, '', '#/profile/social'); }
   $('#tab').innerHTML = `
+    <div class="panel ig-connect">
+      <div>${platformMark('instagram')} <b>Instagram insights</b> ${igLinked ? `<span class="verified">✓ Connected as @${esc(igLinked.handle)}</span>` : ''}
+        <p class="small muted" style="margin:6px 0 0">${igLinked ? 'Reach, views, shares and saves for your deal reels, posts and stories are tracked automatically, and brands see verified numbers.' : 'Connect your Instagram Creator or Business account once. Brands then see real reach and views for every reel, post and story you make for them, updated automatically. We only read numbers; we never post for you.'}</p></div>
+      ${igLinked ? '<button class="btn ghost small" id="ig-off">Disconnect</button>' : '<button class="btn" id="ig-on">Connect Instagram</button>'}
+    </div>
     <div class="panel">
       <div class="panel-head"><div><h2>Social accounts</h2><p class="small muted" style="margin:0">YouTube and Instagram numbers are checked with the platform and marked verified. Others show as self-reported until official connections are added.</p></div>
       <button class="btn" id="add">Add account</button></div>
@@ -136,6 +150,10 @@ async function social(p) {
       go('#/profile/social');
     });
   };
+  const on = $('#ig-on');
+  if (on) on.onclick = busy(on, async () => { const r = await get('/social/instagram/connect'); location.href = r.url; });
+  const off = $('#ig-off');
+  if (off) off.onclick = async () => { if (await confirmBox('Disconnect Instagram?', 'Deal posts will only show public likes and comments until you connect again.', 'Disconnect', true)) { try { await post('/social/instagram/disconnect'); go('#/profile/social'); } catch (e) { fail(e); } } };
   $$('[data-sync]').forEach((b) => { b.onclick = busy(b, async () => { const r = await post(`/creators/me/social/${b.dataset.sync}/sync`); toast(r.verified ? 'Numbers refreshed' : 'Automatic check is not available for this account'); go('#/profile/social'); }); });
   $$('[data-rm]').forEach((b) => { b.onclick = async () => { if (await confirmBox('Remove account?', 'It will no longer show on your profile.', 'Remove', true)) { try { await del(`/creators/me/social/${b.dataset.rm}`); go('#/profile/social'); } catch (e) { fail(e); } } }; });
 }

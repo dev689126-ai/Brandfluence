@@ -3,6 +3,7 @@ import { $, $$, esc, inr, compact, pct, label, date, tag, toast, fail, modal, fo
 import { ctx, go } from '../state.js';
 import { dealRows, openOfferModal } from './deals.js';
 import { platformMark } from '../icons.js';
+import { startChatModal, proBadge } from './chat.js';
 
 const main = () => $('#main');
 
@@ -84,7 +85,7 @@ function card(c) {
   const prices = Object.entries(c.starting_prices || {}).sort((a, b) => a[1] - b[1]);
   const top = (c.social || []).slice().sort((a, b) => b.followers - a.followers).slice(0, 2);
   return `<div class="ccard">
-    <div class="ccard-top">${avatar(c.full_name, c.photo_url)}<div><div class="t"><b>${esc(c.full_name)}</b> ${isTrue(c.is_verified) ? '<span class="verified" title="Verified">✓</span>' : ''}</div>
+    <div class="ccard-top">${avatar(c.full_name, c.photo_url)}<div><div class="t"><b>${esc(c.full_name)}</b> ${isTrue(c.is_verified) ? '<span class="verified" title="Verified">✓</span>' : ''} ${c.is_pro ? proBadge() : ''}</div>
       <div class="small muted">@${esc(c.username)}${c.city ? ` · ${esc(c.city)}` : ''}</div></div></div>
     <div class="stats-line">${top.map((a) => `<div><b>${compact(a.followers)}</b>${platformMark(a.platform)} ${a.verified ? '<span class="verified">✓</span>' : ''}</div>`).join('')}<div><b>${pct(c.avg_engagement_rate)}</b>Engagement</div></div>
     ${c.categories ? `<div class="small muted">${esc(c.categories.split(',').slice(0, 3).join(', '))}</div>` : ''}
@@ -110,11 +111,11 @@ export function renderCreatorProfile(root, p, { preview }) {
     <div class="panel" style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
       ${avatar(c.full_name, c.photo_url, 'lg')}
       <div style="flex:1;min-width:220px">
-        <h1 style="margin:0">${esc(c.full_name)} ${isTrue(c.is_verified) ? '<span class="verified" style="font-size:16px">✓ Verified creator</span>' : ''}</h1>
+        <h1 style="margin:0">${esc(c.full_name)} ${isTrue(c.is_verified) ? '<span class="verified" style="font-size:16px">✓ Verified creator</span>' : ''} ${c.is_pro ? proBadge() : ''}</h1>
         <div class="muted">@${esc(c.username)}${c.city ? ` · ${esc(c.city)}, ${esc(c.state || c.country || '')}` : ''}</div>
         <div class="small" style="margin-top:6px">${esc((c.categories || '').split(',').join(' · '))}${c.languages ? ` — speaks ${esc(c.languages.split(',').join(', '))}` : ''}</div>
       </div>
-      ${preview ? '' : `<div class="btn-row">${isTrue(c.is_available) ? '' : '<span class="tag gold">Not taking new work right now</span>'}<button class="btn money" id="offer">Send collaboration offer</button></div>`}
+      ${preview ? '' : `<div class="btn-row">${isTrue(c.is_available) ? '' : '<span class="tag gold">Not taking new work right now</span>'}${ctx.role === 'business' ? (p.open_chat_id ? `<a class="btn secondary" href="#/messages/${p.open_chat_id}">Open chat</a>` : '<button class="btn secondary" id="message">Message</button>') : ''}<button class="btn money" id="offer">Send collaboration offer</button></div>`}
     </div>
     <div class="figures">
       <div class="figure"><b>${compact(c.total_followers)}</b><span>Total audience</span></div>
@@ -146,6 +147,8 @@ export function renderCreatorProfile(root, p, { preview }) {
     </div>`;
   const btn = $('#offer', root);
   if (btn) btn.onclick = () => openOffer(p);
+  const msg = $('#message', root);
+  if (msg) msg.onclick = () => startChatModal({ to: { creator_id: c.ROWID }, name: c.full_name });
 }
 
 async function openOffer(p) {
@@ -156,7 +159,8 @@ async function openOffer(p) {
     campaigns,
     rates: p.rates,
     onSubmit: async (terms) => {
-      const r = await post('/deals', { creator_id: p.creator.ROWID, ...terms });
+      const conv = (location.hash.match(/[?&]conv=(\d+)/) || [])[1];
+      const r = await post('/deals', { creator_id: p.creator.ROWID, ...terms, conversation_id: conv });
       toast('Offer sent');
       go('#/deals/' + r.deal.ROWID);
     },

@@ -4,6 +4,7 @@ const db = require('../lib/db');
 const { wrap, badRequest, conflict } = require('../lib/errors');
 const { isAdminEmail } = require('../lib/auth');
 const { audit } = require('../services/audit');
+const { planInfo } = require('../services/plans');
 
 // GET /me – who am I, and have I onboarded?
 router.get('/', wrap(async (req, res) => {
@@ -11,6 +12,7 @@ router.get('/', wrap(async (req, res) => {
     user: { id: req.user.user_id, email: req.user.email_id, first_name: req.user.first_name, last_name: req.user.last_name },
     profile: req.profile,
     creator: req.creator ? hideSecrets(req.creator) : null,
+    plan: req.creator ? await planInfo(req.app_, req.creator) : null,
     business: req.business || null,
     onboarded: Boolean(req.profile && String(req.profile.onboarding_complete) === 'true'),
     can_be_admin: isAdminEmail(req.user.email_id),

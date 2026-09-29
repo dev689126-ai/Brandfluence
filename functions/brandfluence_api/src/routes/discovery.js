@@ -10,6 +10,7 @@ const db = require('../lib/db');
 const { wrap } = require('../lib/errors');
 const { requireRole } = require('../lib/auth');
 const { publicAccount } = require('./creators');
+const plans = require('../services/plans');
 
 const SORTS = {
   followers: 'total_followers DESC',
@@ -77,8 +78,10 @@ router.get('/creators', requireRole('business', 'admin'), wrap(async (req, res) 
     const r = rates.filter((x) => String(x.creator_id) === String(c.ROWID));
     const starting = {};
     r.forEach((x) => { const k = `${x.platform}:${x.service_type}`; starting[k] = Math.min(starting[k] ?? Infinity, Number(x.price)); });
-    return { ...pub, social: acc, starting_prices: starting };
+    return { ...pub, is_pro: plans.isPro(c), social: acc, starting_prices: starting };
   });
+  // Pro creators are shown first on each results page (stable: keeps the chosen sort within each group)
+  data.sort((a, b) => Number(b.is_pro) - Number(a.is_pro));
 
   const payload = { data, page, size };
   await cachePut(app, cacheKey, payload);

@@ -4,6 +4,7 @@ const db = require('../lib/db');
 const { wrap, badRequest, notFound } = require('../lib/errors');
 const { requireRole } = require('../lib/auth');
 const { ACTIVE } = require('../services/dealMachine');
+const plans = require('../services/plans');
 
 const bizOnly = requireRole('business');
 const mine = (req) => req.business.ROWID;
@@ -115,13 +116,54 @@ router.put('/me/campaigns/:id', bizOnly, wrap(async (req, res) => {
   res.json({ ...c, ...row });
 }));
 
-/* Public business card shown to creators receiving an offer */
+/* Brand directory for creators to find and pitch businesses
+   GET /businesses/directory?q=&category=&city=&page=&size= */
+const PUBLIC_BIZ = (b) => ({ ROWID: b.ROWID, company_name: b.company_name, logo_url: b.logo_url, category: b.category,
+  website: b.website, city: b.city, state: b.state, country: b.country, about: b.about,
+  verified: b.verification_status === 'verified' });
+
+router.get('/directory', requireRole('creator', 'admin'), wrap(async (req, res) => {
+  const app = req.app_;
+  const q = req.query;
+  const { page, size, tail } = db.paging(req, 48);
+  const where = [];
+  if (q.q) { const s = db.esc(q.q); where.push(`(company_name LIKE '*${s}*' OR about LIKE '*${s}*')`); }
+  if (q.category) where.push(`category = ${db.str(q.category)}`);
+  if (q.city) where.push(`city = ${db.str(q.city)}`);
+  if (q.verified === '1') where.push(`verification_status = 'verified'`);
+  const rows = await db.select(app, 'BusinessProfiles', where.join(' AND '), `ORDER BY MODIFIEDTIME DESC ${tail}`);
+  const ids = rows.map((b) => b.ROWID);
+  const camps = ids.length ? await db.select(app, 'Campaigns', `business_id IN ${db.list(ids, db.id)} AND status = 'active'`, 'LIMIT 0, 300') : [];
+  res.json({ page, size, data: rows.map((b) => ({ ...PUBLIC_BIZ(b),
+    open_campaigns: camps.filter((c) => String(c.business_id) === String(b.ROWID)).length })) });
+}));
+
+/* Public business card shown to creators (offers, directory, chats) */
 router.get('/:id', wrap(async (req, res) => {
-  const b = await db.one(req.app_, 'BusinessProfiles', `ROWID = ${db.id(req.params.id)}`);
+  const app = req.app_;
+  const b = await db.one(app, 'BusinessProfiles', `ROWID = ${db.id(req.params.id)}`);
   if (!b) throw notFound('Business not found');
-  const reviews = await db.select(req.app_, 'Reviews', `reviewee_id = ${b.ROWID} AND reviewer_role = 'creator' AND is_public = true`, 'ORDER BY CREATEDTIME DESC LIMIT 0, 20');
+  const reviews = await db.select(app, 'Reviews', `reviewee_id = ${b.ROWID} AND reviewer_role = 'creator' AND is_public = true`, 'ORDER BY CREATEDTIME DESC LIMIT 0, 20');
   const { gstin, verification_docs, contact_phone, address, ...pub } = b;
-  res.json({ business: pub, reviews });
+  const out = { business: pub, reviews };
+  if (req.creator) {
+    const [camps, chat, done] = await Promise.all([
+      db.select(app, 'Campaigns', `business_id = ${b.ROWID} AND status = 'active'`, 'ORDER BY CREATEDTIME DESC LIMIT 0, 20'),
+      db.one(app, 'Conversations', `creator_id = ${req.creator.ROWID} AND business_id = ${b.ROWID} AND status = 'open'`),
+      db.count(app, 'Deals', `business_id = ${b.ROWID} AND status = 'completed'`),
+    ]);
+    const pro = plans.isPro(req.creator);
+    out.completed_deals = done;
+    out.open_chat_id = chat ? chat.ROWID : null;
+    out.campaigns_count = camps.length;
+    // Open campaigns and budgets are a Pro feature
+    out.campaigns = pro ? camps.map((c) => ({ ROWID: c.ROWID, name: c.name, goal: c.goal, brief: c.brief, platforms: c.platforms,
+      content_types: c.content_types, category: c.category, budget_min: c.budget_min, budget_max: c.budget_max,
+      start_date: c.start_date, end_date: c.end_date })) : [];
+    out.campaigns_locked = !pro && camps.length > 0;
+    out.plan = await plans.planInfo(app, req.creator);
+  }
+  res.json(out);
 }));
 
 function normCampaign(body) {

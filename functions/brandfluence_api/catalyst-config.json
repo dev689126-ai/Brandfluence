@@ -22,7 +22,13 @@
       "IG_ACCESS_TOKEN": "",
       "SCHEDULER_SECRET": "",
       "TWITCH_CLIENT_ID": "",
-      "TWITCH_CLIENT_SECRET": ""
+      "TWITCH_CLIENT_SECRET": "",
+      "CREATOR_PRO_MONTHLY": "499",
+      "CREATOR_PRO_YEARLY": "4999",
+      "CREATOR_FREE_PITCHES": "1",
+      "CREATOR_PRO_PITCHES": "30",
+      "IG_APP_ID": "",
+      "IG_APP_SECRET": ""
     }
   },
   "execution": {

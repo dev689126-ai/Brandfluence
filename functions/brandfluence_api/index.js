@@ -20,6 +20,7 @@ app.use(express.json({ limit: '1mb' }));
 // Unauthenticated
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'brandfluence_api', time: new Date().toISOString() }));
 app.use('/internal', require('./src/routes/internal'));
+app.use('/oauth', require('./src/routes/tracking').oauth); // Instagram login callback (identified by signed state)
 
 // Everything below requires a signed-in Catalyst user
 app.use(authenticate);
@@ -30,8 +31,11 @@ app.use('/creators', require('./src/routes/creators'));
 app.use('/businesses', require('./src/routes/businesses'));
 app.use('/discover', require('./src/routes/discovery'));
 app.use('/deals', require('./src/routes/deals'));
+app.use('/conversations', require('./src/routes/conversations'));
+app.use('/plans', require('./src/routes/plans'));
 app.use('/', require('./src/routes/content'));       // /deals/:id/start, /deliverables/*, /submissions/*
 app.use('/', require('./src/routes/messages'));      // /deals/:id/messages
+app.use('/', require('./src/routes/tracking'));      // post performance, Instagram connect
 app.use('/', require('./src/routes/payments'));      // /deals/:id/payment-order, /payments/verify, /deals/:id/release, /wallet
 app.use('/', require('./src/routes/reviews'));       // /deals/:id/reviews
 app.use('/', require('./src/routes/disputes'));      // /deals/:id/disputes

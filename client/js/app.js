@@ -8,16 +8,18 @@ import * as business from './pages/business.js';
 import * as deals from './pages/deals.js';
 import * as admin from './pages/admin.js';
 import * as common from './pages/common.js';
+import * as chat from './pages/chat.js';
+import * as pro from './pages/pro.js';
 import { auth } from './api.js';
 import { skeleton, countUp, drawJourney } from './motion.js';
 import { icon } from './icons.js';
 
 const NAV = {
   creator: [
-    ['#/home', 'Home', 'home'], ['#/deals', 'Deals', 'deals'], ['#/profile', 'My profile', 'user'], ['#/earnings', 'Earnings', 'wallet'], ['#/notifications', 'Notifications', 'bell'],
+    ['#/home', 'Home', 'home'], ['#/brands', 'Find brands', 'search'], ['#/messages', 'Messages', 'chat'], ['#/deals', 'Deals', 'deals'], ['#/profile', 'My profile', 'user'], ['#/earnings', 'Earnings', 'wallet'], ['#/plan', 'Pro plan', 'star'], ['#/notifications', 'Notifications', 'bell'],
   ],
   business: [
-    ['#/home', 'Dashboard', 'home'], ['#/discover', 'Find creators', 'search'], ['#/campaigns', 'Campaigns', 'megaphone'], ['#/deals', 'Deals', 'deals'],
+    ['#/home', 'Dashboard', 'home'], ['#/discover', 'Find creators', 'search'], ['#/messages', 'Messages', 'chat'], ['#/campaigns', 'Campaigns', 'megaphone'], ['#/deals', 'Deals', 'deals'],
     ['#/payments', 'Payments', 'card'], ['#/company', 'Company profile', 'building'], ['#/notifications', 'Notifications', 'bell'],
   ],
   admin: [
@@ -32,9 +34,14 @@ const ROUTES = [
   [/^#\/deals\/(\d+)$/, (m) => deals.dealPage(m[1])],
   [/^#\/deals(?:\?.*)?$/, () => deals.dealList()],
   [/^#\/notifications$/, () => common.notifications()],
+  [/^#\/messages$/, () => chat.inbox()],
+  [/^#\/messages\/(\d+)$/, (m) => chat.thread(m[1])],
+  [/^#\/brands$/, () => pro.brands()],
+  [/^#\/brands\/(\d+)$/, (m) => pro.brandPage(m[1])],
+  [/^#\/plan$/, () => pro.planPage()],
   // creator
   [/^#\/home$/, () => (ctx.role === 'creator' ? creator.home() : ctx.role === 'business' ? business.home() : admin.overview())],
-  [/^#\/profile(?:\/(\w+))?$/, (m) => creator.profile(m[1] || 'details')],
+  [/^#\/profile(?:\/(\w+))?(?:\?.*)?$/, (m) => creator.profile(m[1] || 'details')],
   [/^#\/earnings$/, () => creator.earnings()],
   // business
   [/^#\/discover$/, () => business.discover()],
@@ -80,7 +87,7 @@ function shell() {
     <div class="shell">
       <aside class="side" id="side">
         <a class="brand" href="${ctx.role === 'admin' ? '#/admin' : '#/home'}"><i></i>Brandfluence</a>
-        <nav class="nav" aria-label="Main">${NAV[ctx.role].map(([h, t, ic]) => `<a href="${h}" data-nav="${h}">${icon(ic)}<span>${esc(t)}</span>${h === '#/notifications' ? '<span class="count hidden" id="unread"></span>' : ''}</a>`).join('')}</nav>
+        <nav class="nav" aria-label="Main">${NAV[ctx.role].map(([h, t, ic]) => `<a href="${h}" data-nav="${h}">${icon(ic)}<span>${esc(t)}</span>${h === '#/notifications' ? '<span class="count hidden" id="unread"></span>' : h === '#/messages' ? '<span class="count hidden" id="chat-unread"></span>' : ''}</a>`).join('')}</nav>
         <div class="side-foot">${avatar(name, ctx.role === 'creator' ? ctx.me.creator.photo_url : ctx.role === 'business' ? ctx.me.business.logo_url : null, 'sm')}<div style="min-width:0"><div class="who">${esc(name)}</div><div class="small" style="color:#9C91B2">${esc(ctx.role === 'admin' ? 'Administrator' : ctx.role === 'creator' ? 'Creator' : 'Business')}</div><button id="logout">${icon('logout', 14)} Sign out</button></div></div>
       </aside>
       <main class="main" id="main" tabindex="-1"></main>
@@ -123,6 +130,13 @@ export async function refreshUnread() {
     const el = document.getElementById('unread');
     if (el) { el.textContent = unread; el.classList.toggle('hidden', !unread); }
   } catch { /* ignore */ }
+  if (ctx.role === 'creator' || ctx.role === 'business') {
+    try {
+      const c = await get('/conversations?status=open');
+      const el = document.getElementById('chat-unread');
+      if (el) { el.textContent = c.unread; el.classList.toggle('hidden', !c.unread); }
+    } catch { /* ignore */ }
+  }
 }
 
 boot();

@@ -10,6 +10,7 @@ const { audit } = require('../services/audit');
 const { recomputeCreator } = require('../services/social');
 const { releaseDeal } = require('./payments');
 const rzp = require('../services/razorpay');
+const plans = require('../services/plans');
 
 router.use(requireRole('admin'));
 
@@ -231,5 +232,36 @@ router.put('/categories/:id', wrap(async (req, res) => {
 }));
 
 const safeJson = (s) => { try { return s ? JSON.parse(s) : null; } catch { return null; } };
+
+/* Give or remove Creator Pro by hand (e.g. before online payments are live, or as a reward)
+   body: { period: 'month' | 'year' | 'remove', note? } */
+router.post('/creators/:id/plan', wrap(async (req, res) => {
+  const app = req.app_;
+  const { period, note } = req.body || {};
+  const c = await db.mustGet(app, 'CreatorProfiles', req.params.id, 'Creator');
+  if (period === 'remove') {
+    await db.update(app, 'CreatorProfiles', { ROWID: c.ROWID, plan: 'free', plan_expires_at: db.now() });
+    await audit(app, { actor: req.profile, entityType: 'creator', entityId: c.ROWID, action: 'pro_removed', details: { note }, ip: req.ip });
+    return res.json({ ok: true, plan: 'free' });
+  }
+  if (!plans.PERIOD_DAYS[period]) throw badRequest('Period must be month, year or remove');
+  const ends = await plans.extendPro(app, c.ROWID, period);
+  await db.insert(app, 'CreatorSubscriptions', { creator_id: c.ROWID, plan: 'pro', period, amount: 0, status: 'active', source: 'admin', starts_at: db.now(), ends_at: ends });
+  await audit(app, { actor: req.profile, entityType: 'creator', entityId: c.ROWID, action: 'pro_granted', details: { period, ends, note }, ip: req.ip });
+  await notify(app, c.user_profile_id, { type: 'plan', link: '/plan', title: 'Creator Pro is now active', body: `Pro is active until ${ends.slice(0, 10)}.` });
+  res.json({ ok: true, plan: 'pro', expires_at: ends });
+}));
+
+/* Pro subscriptions and plan revenue */
+router.get('/subscriptions', wrap(async (req, res) => {
+  const app = req.app_;
+  const { tail, page, size } = db.paging(req);
+  const [rows, revenue, activePro] = await Promise.all([
+    db.select(app, 'CreatorSubscriptions', `status = 'active'`, `ORDER BY CREATEDTIME DESC ${tail}`),
+    db.sum(app, 'CreatorSubscriptions', 'amount', `status = 'active'`),
+    db.count(app, 'CreatorProfiles', `plan = 'pro' AND plan_expires_at > ${db.str(db.now())}`),
+  ]);
+  res.json({ page, size, revenue, active_pro: activePro, data: rows });
+}));
 
 module.exports = router;

@@ -1,12 +1,3 @@
-# Catalyst Pipelines: deploys Brandfluence to Development on every push to main.
-# Uses Catalyst's default build machine (Ubuntu with the Catalyst CLI pre-installed), so no Docker account is needed.
-# Set these as Global Variables in the pipeline (Pipelines -> your pipeline -> Global configuration):
-#   CATALYST_TOKEN     output of `catalyst token:generate` on your computer
-#   CATALYST_ORG       60027750675
-#   PROJECT_NAME       Brandfluence
-#   SCHEDULER_SECRET   same value as in secrets.local.json
-#   YOUTUBE_API_KEY, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET,
-#   TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, IG_BUSINESS_ACCOUNT_ID, IG_ACCESS_TOKEN   (optional)
 version: 1
 runners:
   Machine:

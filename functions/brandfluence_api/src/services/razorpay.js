@@ -49,6 +49,11 @@ function createOrder({ amount, receipt, creatorAccountId, creatorPayout, notes }
   });
 }
 
+/** A plain order paid to Brandfluence itself (e.g. a creator's Pro plan): no transfer to anyone. */
+function createPlainOrder({ amount, receipt, notes }) {
+  return call('POST', '/orders', { amount: paise(amount), currency: 'INR', receipt, notes });
+}
+
 const paymentTransfers = (paymentId) => call('GET', `/payments/${encodeURIComponent(paymentId)}/transfers`);
 const releaseTransfer = (transferId) => call('PATCH', `/transfers/${encodeURIComponent(transferId)}`, { on_hold: 0 });
 const reverseTransfer = (transferId, amount) =>
@@ -74,5 +79,5 @@ function safeEqual(a, b) {
   return x.length === y.length && crypto.timingSafeEqual(x, y);
 }
 
-module.exports = { configured, createOrder, paymentTransfers, releaseTransfer, reverseTransfer, refundPayment,
+module.exports = { configured, createOrder, createPlainOrder, paymentTransfers, releaseTransfer, reverseTransfer, refundPayment,
   verifyCheckoutSignature, verifyWebhookSignature };

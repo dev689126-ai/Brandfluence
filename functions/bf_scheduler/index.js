@@ -1,10 +1,10 @@
 'use strict';
 /**
  * Job function for Catalyst Job Scheduling.
- * Create cron jobs that pass the job param  task = sync_metrics | auto_release | reminders
+ * Create cron jobs that pass the job param  task = sync_metrics | auto_release | reminders | track_posts
  * (or leave it empty to run all three).
  */
-const TASKS = ['sync_metrics', 'auto_release', 'reminders'];
+const TASKS = ['sync_metrics', 'auto_release', 'reminders', 'track_posts'];
 
 module.exports = async (jobRequest, context) => {
   let task;

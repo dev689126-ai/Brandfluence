@@ -44,7 +44,7 @@ Never run a plain `catalyst deploy` for functions. It would upload empty secret 
 
 ## Automatic deploys (Catalyst Pipelines)
 
-`catalyst-pipelines.yaml` deploys the backend, scheduler and web app to **Development** on every push to `main`. It uses Catalyst's default build machine, so no Docker account is needed.
+`catalyst-pipelines.yaml` deploys the backend, scheduler and web app to **Development** on every push to `main`. It follows Catalyst's official [Deploy to Catalyst](https://docs.catalyst.zoho.com/en/pipelines/help/deployments/deploy-to-catalyst/) sample: the job runs in an `ubuntu` image pulled from Docker Hub, so a free Docker Hub account is needed.
 
 One-time setup:
 1. On your computer, run `catalyst token:generate` and copy the token.
@@ -54,9 +54,50 @@ One-time setup:
    - `CATALYST_ORG`: `60027750675`
    - `PROJECT_NAME`: `Brandfluence`
    - `SCHEDULER_SECRET`: same value as in `secrets.local.json`
-   - Optional keys, left empty if unused: `YOUTUBE_API_KEY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `IG_BUSINESS_ACCOUNT_ID`, `IG_ACCESS_TOKEN`
+   - `USER_NAME`: your Docker Hub username
+   - `USER_PASSWORD`: a Docker Hub access token (Docker Hub → Account settings → Personal access tokens, read-only)
+   - When you get API keys (YouTube, Razorpay, Twitch, Instagram), add them as variables too and add them to the deploy step in `catalyst-pipelines.yaml` the same way as `SCHEDULER_SECRET`.
 
 Production is still updated from the Console with **Deploy to Production**, after checking Development.
+
+## Creator Pro plan and direct chats
+
+Creators can pitch businesses directly from **Find brands**, and both sides chat in **Messages** before any deal. When a chat goes well, the business clicks **Send offer** in the chat, and the normal offer, agreement and held-payment flow takes over.
+
+| | Free | Pro |
+| --- | --- | --- |
+| Receive offers, chat inside deals, reply to brands | Yes | Yes |
+| Start a chat with a brand (pitch) | 1 a month | 30 a month |
+| See brands' open campaigns, briefs and budgets | No | Yes |
+| Pro badge and first place on brand search pages | No | Yes |
+| See which brands viewed your profile | Count only | Brand names |
+
+Prices and limits are environment variables on `brandfluence_api` (change them in the Catalyst console without a deploy): `CREATOR_PRO_MONTHLY` (499), `CREATOR_PRO_YEARLY` (4999), `CREATOR_FREE_PITCHES` (1), `CREATOR_PRO_PITCHES` (30).
+
+Payment uses the same Razorpay keys as deals (a plain order to Brandfluence, no transfer). Until Razorpay is live, admins can give Pro from **Admin → Creators → Plan**; it is audit-logged.
+
+New Data Store tables (App User access: none): `Conversations`, `ConversationMessages`, `CreatorSubscriptions`, `ProfileViews`; new columns `plan` and `plan_expires_at` on `CreatorProfiles`. Create the same tables in Production before deploying there.
+
+## Automatic post performance (reach, views, engagement)
+
+When a creator adds the live link of a deal post, Brandfluence tracks it automatically and both sides see the numbers on the deal page, plus campaign totals (views, reach, engagement rate, cost per view).
+
+| Post | What is tracked | Needs |
+| --- | --- | --- |
+| Instagram reel or post | Reach, views, likes, comments, shares, saves | Creator clicks **Connect Instagram** once (Creator or Business account) |
+| Instagram story | Reach, views, replies, shares; captured hourly before it disappears at 24 hours | Same |
+| Instagram, creator not connected | Public likes and comments only | `IG_BUSINESS_ACCOUNT_ID` + `IG_ACCESS_TOKEN` |
+| YouTube video or short | Views, likes, comments | `YOUTUBE_API_KEY` |
+
+The hourly `track_posts` cron checks new posts every hour for 2 days, every 6 hours for the first week, then daily for a month. The nightly `metrics_sync` also renews Instagram logins before they expire (they last 60 days).
+
+**One-time Meta setup for Connect Instagram**
+1. developers.facebook.com → Create app → type **Business** → add the **Instagram** product → **API setup with Instagram login**.
+2. Under **Set up Instagram business login**, add the redirect URL: `https://<your-domain>/server/brandfluence_api/oauth/instagram/callback`.
+3. Copy the **Instagram app ID** and **Instagram app secret** into `secrets.local.json` as `IG_APP_ID` and `IG_APP_SECRET`, then deploy.
+4. While the app is in development, only Instagram accounts added as testers (App roles → Instagram testers) can connect. For everyone, complete Business verification and App Review for `instagram_business_basic` and `instagram_business_manage_insights`.
+
+Data Store table `PostMetrics` (App User access: none) keeps every snapshot. Create it and the `track_posts` cron in Production too.
 
 ## Sign-in form styling
 

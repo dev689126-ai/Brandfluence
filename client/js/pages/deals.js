@@ -1,5 +1,5 @@
 import { get, post, put, qs, upload, fileUrl, BASE } from '../api.js';
-import { $, $$, esc, inr, compact, label, date, tag, toast, fail, modal, confirmBox, formData, busy, field, select, emptyState, avatar, isTrue } from '../ui.js';
+import { $, $$, esc, inr, compact, pct, label, date, tag, toast, fail, modal, confirmBox, formData, busy, field, select, emptyState, avatar, isTrue } from '../ui.js';
 import { ctx, go } from '../state.js';
 
 const main = () => $('#main');
@@ -231,11 +231,12 @@ function renderDeliverables(r) {
         ${latest ? submissionView(latest, side) : ''}
         ${subs.length > 1 ? `<details class="small" style="margin-top:6px"><summary>Earlier versions (${subs.length - 1})</summary>${subs.slice(1).map((s) => submissionView(s, 'history')).join('')}</details>` : ''}
         ${d.published_url ? `<p class="small" style="margin:8px 0 0">Live: <a href="${esc(d.published_url)}" target="_blank" rel="noopener">${esc(d.published_url)}</a> · ${date(d.published_at)}</p>` : ''}
-        ${d.metrics && Object.keys(d.metrics).length ? `<p class="small" style="margin:4px 0 0">${['views', 'reach', 'likes', 'comments', 'shares', 'saves'].filter((k) => d.metrics[k]).map((k) => `${compact(d.metrics[k])} ${k}`).join(' · ')} <span class="muted">(${esc(label(d.metrics.source || ''))})</span></p>` : ''}
+        ${d.status === 'published' ? postStats(d, side) : ''}
         <div class="btn-row" style="margin-top:10px">
           ${canSubmit ? `<button class="btn small" data-submit="${d.ROWID}">${d.status === 'revision_requested' ? 'Upload revised draft' : 'Upload draft'}</button>` : ''}
           ${side === 'creator' && d.status === 'approved' ? `<button class="btn small money" data-publish="${d.ROWID}">Add live link</button>` : ''}
-          ${(side === 'creator' || side === 'admin') && d.status === 'published' ? `<button class="btn secondary small" data-metrics="${d.ROWID}">${d.metrics ? 'Update results' : 'Add results'}</button>` : ''}
+          ${d.status === 'published' ? `<button class="btn secondary small" data-refresh="${d.ROWID}">Refresh numbers</button>` : ''}
+          ${(side === 'creator' || side === 'admin') && d.status === 'published' && !(d.metrics && d.metrics.auto) ? `<button class="btn ghost small" data-metrics="${d.ROWID}">${d.metrics ? 'Edit results by hand' : 'Add results by hand'}</button>` : ''}
         </div>
       </div>`;
     }).join('')}</div>`;
@@ -243,6 +244,12 @@ function renderDeliverables(r) {
   $$('[data-submit]', box).forEach((b) => { b.onclick = () => submitModal(deal.ROWID, b.dataset.submit); });
   $$('[data-publish]', box).forEach((b) => { b.onclick = () => publishModal(deal.ROWID, b.dataset.publish); });
   $$('[data-metrics]', box).forEach((b) => { b.onclick = () => metricsModal(deal.ROWID, r.deliverables.find((x) => String(x.ROWID) === b.dataset.metrics)); });
+  $$('[data-refresh]', box).forEach((b) => { b.onclick = busy(b, async () => {
+    const res = await post(`/deliverables/${b.dataset.refresh}/metrics/refresh`);
+    toast(res.ok ? 'Numbers updated' : CHECK_NOTE[res.reason] || 'Could not read this post right now', res.ok ? '' : 'error');
+    go('#/deals/' + deal.ROWID);
+  }); });
+  if (r.deliverables.some((d) => d.status === 'published')) performancePanel(deal.ROWID, side);
   $$('[data-approve]', box).forEach((b) => { b.onclick = busy(b, async () => { await post(`/submissions/${b.dataset.approve}/approve`); toast('Approved'); go('#/deals/' + deal.ROWID); }); });
   $$('[data-changes]', box).forEach((b) => { b.onclick = () => changesModal(deal.ROWID, b.dataset.changes); });
   $$('[data-media]', box).forEach(async (el) => {
@@ -292,8 +299,51 @@ function changesModal(dealId, subId) {
   const save = busy($('button[type=submit]', f), async () => { const r = await post(`/submissions/${subId}/request-changes`, formData(f)); m.close(); toast(`Changes requested. ${r.revisions_left} revision(s) left.`); go('#/deals/' + dealId); });
 }
 
+/* ---------- Post performance ---------- */
+const SOURCE = { instagram_insights: '✓ From Instagram insights', instagram_public: 'Public likes and comments from Instagram', youtube_api: '✓ From YouTube', self_reported: 'Entered by the creator', admin: 'Entered by Brandfluence' };
+const CHECK_NOTE = {
+  connect_instagram: 'Connect Instagram in My profile → Social accounts to get reach and views automatically.',
+  connect_instagram_for_reach: 'Only public likes and comments are available. The creator can connect Instagram for reach and views.',
+  instagram_login_expired: 'The Instagram connection expired. The creator needs to reconnect Instagram.',
+  not_found_on_account: 'This post was not found on the connected Instagram account. Check the link.',
+  youtube_not_configured: 'YouTube tracking is not switched on yet.',
+  unsupported_link: 'Automatic tracking works for Instagram and YouTube links.',
+  not_found: 'The post could not be found. Check the link.',
+};
+function postStats(d, side) {
+  const m = d.metrics || {};
+  const tiles = [['views', 'Views'], ['reach', 'Reach'], ['likes', 'Likes'], ['comments', 'Comments'], ['shares', 'Shares'], ['saves', 'Saves']]
+    .filter(([k]) => m[k] !== undefined && m[k] !== null);
+  const note = m.last_check_error && CHECK_NOTE[m.last_check_error];
+  const creatorFix = side === 'creator' && ['connect_instagram', 'connect_instagram_for_reach', 'instagram_login_expired'].includes(m.last_check_error);
+  return `<div class="post-stats">
+    ${tiles.length ? `<div class="stat-tiles">${tiles.map(([k, t]) => `<div><b>${compact(m[k])}</b><span>${t}</span></div>`).join('')}${m.engagement_rate !== undefined && m.engagement_rate !== null ? `<div><b>${pct(m.engagement_rate)}</b><span>Engagement</span></div>` : ''}</div>` : '<p class="small muted" style="margin:0">Waiting for the first numbers. They are checked every hour.</p>'}
+    <p class="small muted" style="margin:6px 0 0">${esc(SOURCE[m.source] || '')}${m.updated_at ? ` · updated ${date(m.updated_at, true)}` : ''}${m.kind === 'story' ? ' · stories are tracked hourly until they disappear after 24 hours' : ''}</p>
+    ${note ? `<p class="small" style="margin:6px 0 0;color:var(--ink-2)">${esc(note)} ${creatorFix ? '<a href="#/profile/social">Connect Instagram</a>' : ''}</p>` : ''}
+  </div>`;
+}
+async function performancePanel(dealId, side) {
+  try {
+    const p = await get(`/deals/${dealId}/performance`);
+    const t = p.totals;
+    const el = document.createElement('div');
+    el.className = 'panel';
+    el.innerHTML = `<div class="panel-head"><h3>Campaign results</h3><span class="small muted">${p.live} of ${p.total} posts live · updates automatically</span></div>
+      <div class="figures" style="margin:0">
+        <div class="figure"><b>${compact(t.views)}</b><span>Views</span></div>
+        <div class="figure"><b>${compact(t.reach)}</b><span>Accounts reached</span></div>
+        <div class="figure"><b>${compact(t.interactions)}</b><span>Likes, comments, shares, saves</span></div>
+        ${t.engagement_rate !== null ? `<div class="figure"><b>${pct(t.engagement_rate)}</b><span>Engagement rate</span></div>` : ''}
+        ${side !== 'creator' && t.cost_per_view !== null ? `<div class="figure money"><b>${inr(t.cost_per_view)}</b><span>Cost per view</span></div>` : ''}
+      </div>
+      ${!p.instagram_insights_connected && p.posts.some((x) => x.platform === 'instagram') ? `<p class="small muted" style="margin:12px 0 0">${side === 'creator' ? 'Connect your Instagram in <a href="#/profile/social">Social accounts</a> so the brand sees real reach and views.' : 'The creator hasn\'t connected Instagram yet, so Instagram reach and views are not available. Likes and comments still update.'}</p>` : ''}`;
+    const box = $('#deliverables');
+    if (box) box.prepend(el);
+  } catch { /* optional */ }
+}
+
 function publishModal(dealId, delId) {
-  const m = modal('Add the live link', `<form id="pb">${field('published_url', 'Link to the published post', { type: 'url', required: true, attrs: 'placeholder="https://www.instagram.com/reel/…"' })}<p class="small muted">Make sure the post has the paid-partnership label or #ad.</p><button class="btn" type="submit">Mark as live</button></form>`);
+  const m = modal('Add the live link', `<form id="pb">${field('published_url', 'Link to the published post', { type: 'url', required: true, attrs: 'placeholder="https://www.instagram.com/reel/…"' })}<p class="small muted">Make sure the post has the paid-partnership label or #ad. For stories, share the story link (instagram.com/stories/…). Views, reach and engagement are then tracked automatically.</p><button class="btn" type="submit">Mark as live</button></form>`);
   const f = $('#pb', m.el);
   f.onsubmit = (e) => { e.preventDefault(); save(); };
   const save = busy($('button[type=submit]', f), async () => { await post(`/deliverables/${delId}/publish`, formData(f)); m.close(); toast('Marked as live'); go('#/deals/' + dealId); });
@@ -329,7 +379,7 @@ function signModal(dealId) {
   b.onclick = busy(b, async () => { await post(`/deals/${dealId}/sign`, { agree: true }); m.close(); toast('Signed'); go('#/deals/' + dealId); });
 }
 
-function loadScript(src) {
+export function loadScript(src) {
   return new Promise((res, rej) => {
     if (document.querySelector(`script[src="${src}"]`)) return res();
     const s = document.createElement('script');

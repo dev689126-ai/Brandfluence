@@ -33,6 +33,10 @@ const RULES = [
   ['POST', /^\/deals\/\d+\/(disputes|reviews)$/, 10, 3600, 'trust'],
   ['POST', /^\/deals\/\d+\/payment-order$/, 20, 3600, 'payments'],
   ['POST', /^\/uploads\/(file|url)$/, 30, 600, 'uploads'],
+  ['POST', /^\/conversations$/, 20, 3600, 'new_chats'],
+  ['POST', /^\/deliverables\/\d+\/metrics\/refresh$/, 30, 3600, 'social_sync'],
+  ['POST', /^\/conversations\/\d+\/messages$/, 40, 60, 'messages'],
+  ['POST', /^\/plans\/(checkout|verify)$/, 20, 3600, 'payments'],
   ['POST', /^\/creators\/me\/social(\/\d+\/sync)?$/, 30, 3600, 'social_sync'],
   ['GET', /^\/discover\/creators$/, 120, 60, 'search'],
   ['*', /.*/, 300, 60, 'general'], // everything else, per user per minute
@@ -61,7 +65,7 @@ async function cacheHit(app, key, windowSec) {
 
 function rateLimit(req, res, next) {
   // webhooks and scheduler have their own protection (signatures / shared secret)
-  if (req.path.startsWith('/webhooks') || req.path.startsWith('/internal') || req.path === '/health') return next();
+  if (req.path.startsWith('/webhooks') || req.path.startsWith('/internal') || req.path.startsWith('/oauth') || req.path === '/health') return next();
   const rule = RULES.find(([m, re]) => (m === '*' || m === req.method) && re.test(req.path));
   if (!rule) return next();
   const [, , max, windowSec, name] = rule;

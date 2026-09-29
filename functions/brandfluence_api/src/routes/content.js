@@ -9,6 +9,7 @@ const { requireRole, requireProfile } = require('../lib/auth');
 const { STATUS, transition, loadDealFor, participants } = require('../services/dealMachine');
 const { notify } = require('../services/notify');
 const { audit } = require('../services/audit');
+const { trackDeliverable, parsePostUrl } = require('../services/postTracking');
 
 const WORKING = [STATUS.PAYMENT_SECURED, STATUS.IN_PROGRESS, STATUS.CONTENT_SUBMITTED, STATUS.REVISION_REQUESTED, STATUS.APPROVED];
 
@@ -101,7 +102,12 @@ router.post('/deliverables/:id/publish', requireRole('creator'), wrap(async (req
   if (d.status !== 'approved') throw conflict('Only approved content can be marked as published');
   const url = String((req.body || {}).published_url || '');
   if (!/^https:\/\/[^\s]+$/.test(url)) throw badRequest('Paste the live https:// link to the post');
+  const parsed = parsePostUrl(url);
+  if (parsed && ['instagram', 'youtube'].includes(d.platform) && parsed.platform !== d.platform) throw badRequest(`This deliverable is for ${d.platform}. Paste the ${d.platform} link.`);
   await db.update(app, 'Deliverables', { ROWID: d.ROWID, status: 'published', published_url: url, published_at: db.now() });
+  // Start tracking straight away (never block publishing on it)
+  try { await trackDeliverable(app, { ...d, status: 'published', published_url: url, published_at: db.now() }, { creatorId: deal.creator_id }); }
+  catch (e) { console.error('first post check failed', e.message); }
 
   const all = await db.select(app, 'Deliverables', `deal_id = ${deal.ROWID}`);
   let updated = deal;
@@ -125,6 +131,7 @@ router.put('/deliverables/:id/metrics', requireRole('creator', 'admin'), wrap(as
   const m = {};
   keys.forEach((k) => { if (req.body[k] !== undefined) m[k] = Math.max(0, parseInt(req.body[k], 10) || 0); });
   m.source = req.profile.role === 'admin' ? 'admin' : 'self_reported';
+  m.auto = false;
   m.updated_at = db.now();
   await db.update(req.app_, 'Deliverables', { ROWID: d.ROWID, metrics_json: JSON.stringify(m) });
   res.json({ metrics: m });

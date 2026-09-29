@@ -6,6 +6,7 @@ const { requireRole } = require('../lib/auth');
 const { syncAccount, recomputeCreator, normalizeHandle } = require('../services/social');
 const { joinList, hideSecrets } = require('./me');
 const { ACTIVE } = require('../services/dealMachine');
+const plans = require('../services/plans');
 
 const PLATFORMS = ['instagram', 'youtube', 'facebook', 'x', 'linkedin', 'twitch', 'other'];
 const creatorOnly = requireRole('creator');
@@ -124,9 +125,38 @@ router.put('/me/payout-account', creatorOnly, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+/* ---------- Who viewed my profile (count for everyone, the brands themselves for Pro) ---------- */
+router.get('/me/views', creatorOnly, wrap(async (req, res) => {
+  const app = req.app_;
+  const since = new Date(Date.now() - 30 * 86400000 + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
+  const rows = await db.select(app, 'ProfileViews', `creator_id = ${mine(req)} AND viewed_on >= ${db.str(since)}`, 'ORDER BY viewed_on DESC LIMIT 0, 300');
+  const brands = [...new Set(rows.map((r) => String(r.business_id)))];
+  const pro = plans.isPro(req.creator);
+  let list = [];
+  if (pro && brands.length) {
+    const biz = await db.select(app, 'BusinessProfiles', `ROWID IN ${db.list(brands.slice(0, 100), db.id)}`);
+    list = brands.slice(0, 100).map((id) => {
+      const b = biz.find((x) => String(x.ROWID) === id);
+      const last = rows.find((r) => String(r.business_id) === id);
+      return b ? { ROWID: b.ROWID, company_name: b.company_name, logo_url: b.logo_url, city: b.city, category: b.category, last_viewed: last && last.viewed_on } : null;
+    }).filter(Boolean);
+  }
+  res.json({ days: 30, views: rows.length, brands: brands.length, locked: !pro, data: list });
+}));
+
 /* ---------- Public creator profile (seen by businesses) ---------- */
 router.get('/:id', wrap(async (req, res) => {
   const p = await fullProfile(req.app_, db.id(req.params.id), false);
+  if (req.business) {
+    // Remember that this brand looked (once per brand per day); never block the page on it
+    try {
+      const day = db.today();
+      const seen = await db.one(req.app_, 'ProfileViews', `creator_id = ${p.creator.ROWID} AND business_id = ${req.business.ROWID} AND viewed_on = ${db.str(day)}`);
+      if (!seen) await db.insert(req.app_, 'ProfileViews', { creator_id: p.creator.ROWID, business_id: req.business.ROWID, viewed_on: day });
+      const chat = await db.one(req.app_, 'Conversations', `creator_id = ${p.creator.ROWID} AND business_id = ${req.business.ROWID} AND status = 'open'`);
+      p.open_chat_id = chat ? chat.ROWID : null;
+    } catch (e) { console.error('profile view log failed', e.message); }
+  }
   res.json(p);
 }));
 
@@ -179,7 +209,7 @@ async function fullProfile(app, creatorId, isOwner) {
     db.select(app, 'Availability', `creator_id = ${c.ROWID} AND end_date >= ${db.str(db.today())}`, 'ORDER BY start_date ASC'),
     db.select(app, 'Reviews', `reviewee_id = ${c.ROWID} AND reviewer_role = 'business' AND is_public = true`, 'ORDER BY CREATEDTIME DESC LIMIT 0, 20'),
   ]);
-  return { creator: hideSecrets(c), social: social.map(publicAccount), rates, portfolio, availability, reviews };
+  return { creator: { ...hideSecrets(c), is_pro: plans.isPro(c) }, social: social.map(publicAccount), rates, portfolio, availability, reviews };
 }
 
 module.exports = router;

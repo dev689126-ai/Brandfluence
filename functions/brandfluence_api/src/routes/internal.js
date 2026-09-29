@@ -11,6 +11,7 @@ const { STATUS } = require('../services/dealMachine');
 const { syncAccount, recomputeCreator } = require('../services/social');
 const { notify } = require('../services/notify');
 const { releaseDeal } = require('./payments');
+const { trackDeliverable, isDue, refreshInstagramToken } = require('../services/postTracking');
 
 router.post('/run/:task', async (req, res) => {
   const secret = process.env.SCHEDULER_SECRET || '';
@@ -31,6 +32,16 @@ router.post('/run/:task', async (req, res) => {
 });
 
 const TASKS = {
+  /* Hourly: pull reach, views and engagement for published deal posts */
+  async track_posts(app) {
+    const since = db.now(-31 * 86400000);
+    const rows = await db.select(app, 'Deliverables', `status = 'published' AND published_at >= '${since}'`, 'ORDER BY published_at DESC LIMIT 0, 300');
+    const due = rows.filter((d) => isDue(d)).slice(0, 80);
+    let ok = 0;
+    for (const d of due) { try { if ((await trackDeliverable(app, d)).ok) ok += 1; } catch (e) { console.error('track', d.ROWID, e.message); } }
+    return { published: rows.length, checked: due.length, updated: ok };
+  },
+
   /* Refresh follower/engagement numbers for verifiable accounts */
   async sync_metrics(app) {
     const accounts = await db.select(app, 'SocialAccounts',
@@ -41,7 +52,12 @@ const TASKS = {
       if (await syncAccount(app, a)) { ok += 1; creators.add(String(a.creator_id)); }
     }
     for (const c of creators) await recomputeCreator(app, c);
-    return { checked: accounts.length, synced: ok };
+    // Instagram logins last 60 days: renew any that expire within 10 days
+    let renewed = 0;
+    const soon = db.now(10 * 86400000);
+    const igs = await db.select(app, 'SocialAccounts', `platform = 'instagram' AND connection_type = 'oauth' AND is_connected = true AND token_expires_at <= '${soon}'`, 'LIMIT 0, 100');
+    for (const a of igs) { try { if (a.access_token && await refreshInstagramToken(app, a)) renewed += 1; } catch (e) { console.error('ig token refresh', a.ROWID, e.message); } }
+    return { checked: accounts.length, synced: ok, instagram_logins_renewed: renewed };
   },
 
   /* Release held funds N days after all content is published, if nobody objected */

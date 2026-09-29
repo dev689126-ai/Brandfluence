@@ -137,7 +137,11 @@ async function syncAccount(app, account) {
   let m = null;
   try {
     if (account.platform === 'youtube') m = await fetchYouTube(account.platform_account_id || account.handle);
-    if (account.platform === 'instagram') m = await fetchInstagram(account.handle);
+    if (account.platform === 'instagram') {
+      m = account.connection_type === 'oauth' && account.access_token
+        ? await require('./postTracking').instagramOwnProfile(account.access_token)
+        : await fetchInstagram(account.handle);
+    }
     if (account.platform === 'twitch') m = await fetchTwitch(account.handle);
   } catch (e) {
     console.error('social sync failed', account.ROWID, e.message);
@@ -152,7 +156,7 @@ async function syncAccount(app, account) {
     followers: m.followers,
     avg_views: m.avg_views ?? account.avg_views,
     engagement_rate: m.engagement_rate ?? account.engagement_rate,
-    connection_type: 'api',
+    connection_type: account.connection_type === 'oauth' ? 'oauth' : 'api',
     last_synced_at: db.now(),
   });
   await db.insert(app, 'SocialMetrics', {

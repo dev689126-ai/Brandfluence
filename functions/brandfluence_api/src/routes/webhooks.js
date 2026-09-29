@@ -5,6 +5,7 @@ const catalyst = require('zcatalyst-sdk-node');
 const db = require('../lib/db');
 const rzp = require('../services/razorpay');
 const { markCaptured } = require('./payments');
+const { activateOnPayment } = require('./plans');
 const { audit } = require('../services/audit');
 
 router.post('/razorpay', async (req, res) => {
@@ -18,6 +19,11 @@ router.post('/razorpay', async (req, res) => {
       if (pay && pay.order_id) {
         const payment = await db.one(app, 'Payments', `gateway_order_id = ${db.str(pay.order_id)}`);
         if (payment) await markCaptured(app, payment, pay.id, null);
+        else {
+          // Creator Pro plan payment
+          const sub = await db.one(app, 'CreatorSubscriptions', `gateway_order_id = ${db.str(pay.order_id)}`);
+          if (sub) await activateOnPayment(app, sub, pay.id, null);
+        }
       }
     }
     if (evt.event === 'payment.failed') {

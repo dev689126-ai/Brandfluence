@@ -58,9 +58,10 @@ export async function list(kind, state = {}) {
 const TABLES = {
   disputes: (rows) => `<table class="data"><thead><tr><th>#</th><th>Raised</th><th>By</th><th>Issue</th><th>Amount</th><th>Status</th><th></th></tr></thead><tbody>
     ${rows.map((d) => `<tr><td>${d.ROWID.toString().slice(-6)}</td><td>${date(d.CREATEDTIME)}</td><td>${esc(label(d.raised_by_role))}</td><td>${esc(label(d.issue_type))}</td><td>${inr(d.amount_in_dispute)}</td><td>${tag(d.status)}</td><td><a class="btn small" href="#/admin/disputes/${d.ROWID}">Open case</a></td></tr>`).join('')}</tbody></table>`,
-  creators: (rows) => `<table class="data"><thead><tr><th>Creator</th><th>Audience</th><th>Profile</th><th>Verified</th><th>Payouts</th><th></th></tr></thead><tbody>
+  creators: (rows) => `<table class="data"><thead><tr><th>Creator</th><th>Audience</th><th>Profile</th><th>Verified</th><th>Payouts</th><th>Plan</th><th></th></tr></thead><tbody>
     ${rows.map((c) => `<tr><td><b>${esc(c.full_name)}</b><div class="small muted">@${esc(c.username)} · ${esc(c.city || '')}</div></td><td>${compact(c.total_followers)}</td><td>${c.profile_strength}%</td><td>${isTrue(c.is_verified) ? '<span class="verified">✓</span>' : '—'}</td><td>${c.has_payout_account ? tag(c.kyc_status) : '<span class="muted small">Not set</span>'}</td>
-    <td class="nowrap"><a class="btn ghost small" href="#/creators/${c.ROWID}">View</a><button class="btn secondary small" data-verify-c="${c.ROWID}">Review</button></td></tr>`).join('')}</tbody></table>`,
+    <td>${c.plan === 'pro' && String(c.plan_expires_at || '') > new Date(Date.now() + 19800000).toISOString().replace('T', ' ').slice(0, 19) ? `<span class="tag pro">PRO</span><div class="small muted">to ${date(c.plan_expires_at)}</div>` : '<span class="muted small">Free</span>'}</td>
+    <td class="nowrap"><a class="btn ghost small" href="#/creators/${c.ROWID}">View</a><button class="btn secondary small" data-verify-c="${c.ROWID}">Review</button><button class="btn ghost small" data-plan-c="${c.ROWID}">Plan</button></td></tr>`).join('')}</tbody></table>`,
   businesses: (rows) => `<table class="data"><thead><tr><th>Business</th><th>GSTIN</th><th>Documents</th><th>Status</th><th></th></tr></thead><tbody>
     ${rows.map((b) => { let docs = []; try { docs = JSON.parse(b.verification_docs || '[]'); } catch { /* none */ } return `<tr><td><b>${esc(b.company_name)}</b><div class="small muted">${esc(b.category || '')} · ${esc(b.city || '')} · ${esc(b.contact_email || '')}</div></td><td>${esc(b.gstin || '—')}</td>
     <td>${docs.map((k, i) => `<a href="#" class="small" data-doc="${esc(k)}">Document ${i + 1}</a>`).join('<br>') || '<span class="muted small">None</span>'}</td><td>${tag(b.verification_status || 'pending')}</td>
@@ -89,6 +90,16 @@ function bind(kind, data, refresh) {
     const s = b.dataset.s;
     if (!(await confirmBox(s === 'suspended' ? 'Suspend this user?' : 'Reactivate this user?', s === 'suspended' ? 'They will be signed out of all actions until reactivated.' : 'They will regain access.', s === 'suspended' ? 'Suspend' : 'Reactivate', s === 'suspended'))) return;
     try { await post(`/admin/users/${b.dataset.user}/status`, { status: s }); refresh(); } catch (e) { fail(e); }
+  }; });
+  $$('[data-plan-c]').forEach((b) => { b.onclick = () => {
+    const c = data.find((x) => String(x.ROWID) === b.dataset.planC);
+    const m = modal(`Pro plan for ${c.full_name}`, `<form id="pc">
+      ${select('period', 'Change', [['month', 'Add 1 month of Pro'], ['year', 'Add 1 year of Pro'], ['remove', 'Remove Pro now']], 'month')}
+      ${field('note', 'Reason (for the audit log)')}
+      <p class="small muted">Use this before online payments are live, or to reward a creator. It is free for the creator and recorded in the audit log.</p>
+      <button class="btn" type="submit">Save</button></form>`);
+    const f = $('#pc', m.el);
+    f.onsubmit = async (e) => { e.preventDefault(); try { await post(`/admin/creators/${c.ROWID}/plan`, formData(f)); m.close(); toast('Plan updated'); refresh(); } catch (err) { fail(err); } };
   }; });
   $$('[data-verify-c]').forEach((b) => { b.onclick = () => {
     const c = data.find((x) => String(x.ROWID) === b.dataset.verifyC);
